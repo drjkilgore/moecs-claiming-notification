@@ -72,11 +72,11 @@ export async function saveCandidate(c) {
 export async function listCandidates() {
   const store = candStore();
   const { blobs } = await store.list();
-  const out = [];
-  for (const b of blobs) {
-    const c = await store.get(b.key, { type: "json" });
-    if (c) out.push(c);
-  }
+  // Read all records concurrently — sequential reads time out the function
+  // once there are a few hundred candidates (which breaks login + refresh).
+  const out = (await Promise.all(
+    blobs.map((b) => store.get(b.key, { type: "json" }).catch(() => null))
+  )).filter(Boolean);
   out.sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
   return out;
 }
@@ -235,4 +235,5 @@ export async function contactCandidate(c, { followup = false } = {}) {
   await saveCandidate(c);
   return result;
 }
+
 

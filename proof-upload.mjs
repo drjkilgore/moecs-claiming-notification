@@ -1,4 +1,4 @@
-import { json, tokenStore, getCandidate, saveCandidate, proofStore } from "./_shared.mjs";
+import { json, tokenStore, getCandidate, saveCandidate, proofStore, notifyCompletion } from "./_shared.mjs";
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5MB after decode
 
@@ -36,6 +36,10 @@ export default async (req) => {
   c.proofFilename = filename || "proof";
   c.lastError = null;
   await saveCandidate(c);
+
+  // Notify staff that proof came in. Never let a notification failure break
+  // the candidate's submission — they should always see success.
+  try { await notifyCompletion(c); } catch (e) { console.warn("completion notify failed:", e.message); }
 
   return json({ ok: true, message: "Proof received. Thank you — you're all set." });
 };

@@ -15,8 +15,7 @@ export const CFG = {
   SENDGRID_API_KEY: process.env.SENDGRID_API_KEY || "",
   FROM_EMAIL: process.env.FROM_EMAIL || "micertifications@trainingeducators.com",
   FROM_NAME: process.env.FROM_NAME || "#TEACH Certifications Michigan",
-  REPLY_TO: process.env.REPLY_TO || "micertifications@trainingeducators.com",
-  BCC_EMAIL: process.env.BCC_EMAIL || "drjkilgore@trainingeducators.com", // blind copy on every send
+  REPLY_TO: process.env.REPLY_TO || "teachmoecs@gmail.com", // replies land here; From stays on the authenticated domain
   GUIDE_URL: process.env.GUIDE_URL || "",              // public link to the PDF (used in email body)
   SITE_URL: process.env.URL || process.env.SITE_URL || "", // Netlify auto-injects URL
   FOLLOWUP_HOURS: Number(process.env.FOLLOWUP_HOURS || 48),
@@ -192,7 +191,6 @@ export async function sendEmail(c, { followup = false } = {}) {
   const payload = {
     personalizations: [{
       to: [{ email: c.email, name: `${c.firstName} ${c.lastName}`.trim() }],
-      ...(CFG.BCC_EMAIL ? { bcc: [{ email: CFG.BCC_EMAIL }] } : {}),
     }],
     from: { email: CFG.FROM_EMAIL, name: CFG.FROM_NAME },
     reply_to: { email: CFG.REPLY_TO },
@@ -236,4 +234,5 @@ export async function contactCandidate(c, { followup = false } = {}) {
   await saveCandidate(c);
   return result;
 }
+
 

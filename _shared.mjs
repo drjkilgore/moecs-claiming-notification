@@ -237,4 +237,3 @@ export async function contactCandidate(c, { followup = false } = {}) {
   await saveCandidate(c);
   return result;
 }
-

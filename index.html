@@ -145,7 +145,7 @@
       <!-- MANUAL ENTRY -->
       <div id="manualMode" style="margin-top:16px">
         <div class="row">
-          <div><label class="fld">Student / Intern ID *</label><input type="text" id="m_internId" placeholder="e.g. 1234567"></div>
+          <div><label class="fld">Student / Intern ID (no dashes) *</label><input type="text" id="m_internId" placeholder="e.g. 1234567"></div>
           <div><label class="fld">State License ID/PIC Number</label><input type="text" id="m_stateLicenseId"></div>
         </div>
         <div class="row">
@@ -428,11 +428,11 @@ $$(".modeBtn").forEach(b=>b.onclick=()=>{
   $("#manualMode").style.display = file?"none":"block";
 });
 
-const FIELDS=[["internId","Student / Intern ID",true],["firstName","First name",true],["lastName","Last name",true],["email","Email",true],["stateLicenseId","State License ID/PIC Number",false]];
+const FIELDS=[["internId","Student / Intern ID (no dashes)",true],["firstName","First name",true],["lastName","Last name",true],["email","Email",true],["stateLicenseId","State License ID/PIC Number",false]];
 
 // ---- shared staging list (manual + file both feed this) ----
 function stageAdd(row){
-  const internId=String(row.internId??"").trim(); if(!internId) return;
+  const internId=String(row.internId??"").replace(/[-\s]/g,"").trim(); if(!internId) return;
   const clean={internId,
     firstName:String(row.firstName??"").trim(), lastName:String(row.lastName??"").trim(),
     email:String(row.email??"").trim(),
@@ -536,4 +536,5 @@ $("#signin").addEventListener("click",()=>setTimeout(loadTemplate,400));
 </script>
 </body>
 </html>
+
 

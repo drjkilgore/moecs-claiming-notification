@@ -16,6 +16,7 @@ export const CFG = {
   FROM_EMAIL: process.env.FROM_EMAIL || "micertifications@trainingeducators.com",
   FROM_NAME: process.env.FROM_NAME || "#TEACH Certifications Michigan",
   REPLY_TO: process.env.REPLY_TO || "teachmoecs@gmail.com", // replies land here; From stays on the authenticated domain
+  NOTIFY_EMAIL: process.env.NOTIFY_EMAIL || "teachmoecs@gmail.com", // gets a note each time a candidate submits proof
   GUIDE_URL: process.env.GUIDE_URL || "",              // public link to the PDF (used in email body)
   SITE_URL: process.env.URL || process.env.SITE_URL || "", // Netlify auto-injects URL
   FOLLOWUP_HOURS: Number(process.env.FOLLOWUP_HOURS || 48),
@@ -216,6 +217,40 @@ export async function sendEmail(c, { followup = false } = {}) {
     throw new Error(`SendGrid ${r.status}: ${body.slice(0, 300)}`);
   }
   return true;
+}
+
+// ---- Completion notification (sent to staff when a candidate submits proof) ----
+export async function notifyCompletion(c) {
+  if (!CFG.SENDGRID_API_KEY || !CFG.NOTIFY_EMAIL) return;
+  const name = `${c.firstName || ""} ${c.lastName || ""}`.trim() || "(no name)";
+  let when = c.completedAt || new Date().toISOString();
+  try { when = new Date(when).toLocaleString("en-US", { timeZone: "America/Detroit" }); } catch {}
+  const text =
+`A candidate just submitted their MOECS provider-selection proof.
+
+Name: ${name}
+Student ID: ${c.internId}
+Email: ${c.email || "(none)"}
+Submitted: ${when}
+
+They are now marked Completed in the console and their reminders have stopped. To view the proof, open the Recipients & Status tab and click the Proof button on their row.`;
+  const payload = {
+    personalizations: [{ to: [{ email: CFG.NOTIFY_EMAIL }] }],
+    from: { email: CFG.FROM_EMAIL, name: CFG.FROM_NAME },
+    subject: `Proof submitted — ${name} (${c.internId})`,
+    content: [{ type: "text/plain", value: text }],
+    tracking_settings: {
+      click_tracking: { enable: false, enable_text: false },
+      open_tracking: { enable: false },
+      subscription_tracking: { enable: false },
+    },
+  };
+  const r = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${CFG.SENDGRID_API_KEY}`, "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error(`SendGrid ${r.status}`);
 }
 
 // ---- Send orchestration (used by initial + follow-up) ---------------------

@@ -83,7 +83,7 @@
 <header class="app">
   <span class="logo">#TEACH</span>
   <div><div class="sub">Michigan Educator Certification</div><div style="font-weight:700">MOECS Claiming Console</div></div>
-  <div style="margin-left:auto"><button class="btn ghost sm" id="signout" style="display:none">Sign out</button></div>
+  <div style="margin-left:auto;display:flex;gap:8px"><button class="btn ghost sm" id="howBtn">How it works</button><button class="btn ghost sm" id="signout" style="display:none">Sign out</button></div>
 </header>
 <div class="rule"></div>
 
@@ -115,6 +115,7 @@
         <button class="btn ghost sm" id="refresh">Refresh</button>
         <label class="check"><input type="checkbox" id="selAll"> Select all shown</label>
         <span style="flex:1"></span>
+        <button class="btn danger sm" id="delSel">Delete selected</button>
         <button class="btn primary sm" id="sendSel">Send to selected</button>
         <button class="btn sky sm" id="sendPending">Send to all pending</button>
       </div>
@@ -122,10 +123,10 @@
       <div class="tablewrap">
         <table>
           <thead><tr>
-            <th style="width:30px"></th><th>Name</th><th>Student ID</th><th>Email</th><th>Phone</th>
+            <th style="width:30px"></th><th>Name</th><th>Student ID</th><th>Email</th>
             <th>Status</th><th>Attempts</th><th>Last contact</th><th>Actions</th>
           </tr></thead>
-          <tbody id="rows"><tr><td colspan="9" class="muted" style="padding:18px">No candidates imported yet. Use “Upload Roster”.</td></tr></tbody>
+          <tbody id="rows"><tr><td colspan="8" class="muted" style="padding:18px">No candidates imported yet. Use “Add Candidates”.</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -145,7 +146,7 @@
       <div id="manualMode" style="margin-top:16px">
         <div class="row">
           <div><label class="fld">Student / Intern ID *</label><input type="text" id="m_internId" placeholder="e.g. 1234567"></div>
-          <div><label class="fld">State license ID</label><input type="text" id="m_stateLicenseId"></div>
+          <div><label class="fld">State License ID/PIC Number</label><input type="text" id="m_stateLicenseId"></div>
         </div>
         <div class="row">
           <div><label class="fld">First name *</label><input type="text" id="m_firstName"></div>
@@ -153,7 +154,6 @@
         </div>
         <div class="row">
           <div><label class="fld">Email *</label><input type="text" id="m_email" placeholder="name@example.com"></div>
-          <div><label class="fld">Phone</label><input type="text" id="m_phone" placeholder="+13135551234"></div>
         </div>
         <p class="err" id="m_err"></p>
         <div style="margin-top:6px"><button class="btn ghost" id="m_add">Add to list ↓</button></div>
@@ -161,6 +161,7 @@
 
       <!-- FILE UPLOAD -->
       <div id="fileMode" style="display:none;margin-top:16px">
+        <p class="hint">Need the format? <a href="#" id="tmplBtn">Download the Excel template</a> with the correct column headings, fill it in, and upload it below.</p>
         <input type="file" id="file" accept=".xlsx,.xls,.csv">
         <div id="mapArea" style="display:none">
           <h3 style="margin-top:18px">Column mapping</h3>
@@ -178,7 +179,7 @@
       <p class="hint">Review the list, then import everyone at once. Remove any row with ✕.</p>
       <div class="tablewrap" style="max-height:360px">
         <table>
-          <thead><tr><th>Name</th><th>Student ID</th><th>Email</th><th>Phone</th><th>License</th><th style="width:30px"></th></tr></thead>
+          <thead><tr><th>Name</th><th>Student ID</th><th>Email</th><th>License ID/PIC</th><th style="width:30px"></th></tr></thead>
           <tbody id="stageRows"></tbody>
         </table>
       </div>
@@ -222,6 +223,25 @@
 <div class="modal" id="modal"><div class="box">
   <div class="hd"><span id="modalTitle">Proof</span><button class="btn ghost sm" id="modalClose">Close</button></div>
   <div class="bd" id="modalBody"></div>
+</div></div>
+
+<!-- how it works modal -->
+<div class="modal" id="howModal"><div class="box">
+  <div class="hd"><span>How this console works</span><button class="btn ghost sm" id="howClose">Close</button></div>
+  <div class="bd" style="text-align:left">
+    <p style="margin-top:0">This console sends each teacher candidate the MDE notice to select <strong>#TEACH</strong> as their educator preparation provider in MOECS, then tracks who has finished. Anyone who hasn't completed it gets an automatic email reminder every 48 hours until they upload proof.</p>
+    <h3 style="margin-top:18px">Step by step</h3>
+    <ol style="line-height:1.7;padding-left:20px">
+      <li><strong>Add candidates</strong> on the <em>Add Candidates</em> tab — type them in one at a time, or upload a roster file (<span class="mono">.xlsx</span>/<span class="mono">.csv</span>). For files, download the Excel template first so the columns match. Both methods build one list you review before importing.</li>
+      <li><strong>Import</strong> the reviewed list. Re-importing the same Student ID updates contact info and never resets anyone's progress.</li>
+      <li><strong>Send</strong> from the <em>Recipients &amp; Status</em> tab — select people and "Send to selected," or "Send to all pending." Each email merges the candidate's Student ID and attaches the step-by-step guide PDF.</li>
+      <li>Each candidate gets a <strong>personal link</strong>. They upload a screenshot of their MOECS <em>Enrollment Information</em> screen showing #TEACH as provider, which marks them <strong>Completed</strong> and stops reminders.</li>
+      <li><strong>Follow-ups</strong> go out automatically every 48 hours to anyone still incomplete, up to the configured limit.</li>
+      <li><strong>Edit the wording</strong> anytime on the <em>Email Content</em> tab using the merge fields shown there.</li>
+      <li><strong>Clean up</strong> test or duplicate records with the red <em>Delete</em> button on a row, or by selecting rows and clicking <em>Delete selected</em>. Deletes ask for confirmation and cannot be undone.</li>
+    </ol>
+    <p class="muted">Questions or issues: <a href="mailto:micertifications@trainingeducators.com">micertifications@trainingeducators.com</a></p>
+  </div>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -288,7 +308,6 @@ function renderRows(){
     <td><strong>${esc(c.lastName)}, ${esc(c.firstName)}</strong>${c.lastError?`<div class="err">${esc(c.lastError)}</div>`:''}</td>
     <td class="mono">${esc(c.internId)}</td>
     <td>${esc(c.email||'—')}</td>
-    <td>${esc(c.phone||'—')}</td>
     <td>${statusPill(c.status)}</td>
     <td>${c.attempts||0}</td>
     <td class="muted">${fmt(c.lastContactedAt)}</td>
@@ -296,6 +315,7 @@ function renderRows(){
       ${c.status!=='completed'?`<button class="btn ghost sm" data-act="resend" data-id="${c.internId}">Resend</button>`:''}
       ${c.proofKey?`<button class="btn ghost sm" data-act="proof" data-id="${c.internId}">Proof</button>`:''}
       ${c.status!=='completed'?`<button class="btn ghost sm" data-act="done" data-id="${c.internId}">Mark done</button>`:`<button class="btn ghost sm" data-act="reset" data-id="${c.internId}">Reopen</button>`}
+      <button class="btn danger sm" data-act="delete" data-id="${c.internId}">Delete</button>
     </td></tr>`).join("");
   $("#selAll").checked=false;
 }
@@ -317,11 +337,31 @@ async function sendBatch(ids){
 $("#sendSel").onclick = ()=>sendBatch(selectedIds());
 $("#sendPending").onclick = ()=>sendBatch(CANDIDATES.filter(c=>c.status==='pending').map(c=>c.internId));
 
+async function deleteIds(ids){
+  if(!ids.length){ toast("No candidates selected",true); return; }
+  if(!confirm(`Permanently delete ${ids.length} candidate(s)? This removes them and their proof link and cannot be undone.`)) return;
+  let ok=0, fail=0;
+  for(const id of ids){
+    try{ const r=await api("/admin-action",{json:{action:"delete",internId:id}}); const d=await r.json(); d.ok?ok++:fail++; }
+    catch{ fail++; }
+  }
+  toast(`Deleted ${ok}${fail?` · ${fail} failed`:''}`, !!fail && !ok);
+  load();
+}
+$("#delSel").onclick = ()=>deleteIds(selectedIds());
+
 // row actions
 $("#rows").onclick = async e=>{
   const b = e.target.closest("[data-act]"); if(!b) return;
   const id=b.dataset.id, act=b.dataset.act;
   if(act==="proof"){ openProof(id); return; }
+  if(act==="delete"){
+    const c=CANDIDATES.find(x=>x.internId===id);
+    if(!confirm(`Permanently delete ${c?c.firstName+' '+c.lastName:'this candidate'} (${id})? This cannot be undone.`)) return;
+    const r=await api("/admin-action",{json:{action:"delete",internId:id}});
+    const d=await r.json(); if(d.ok){ toast("Deleted"); load(); } else toast(d.error||"Failed",true);
+    return;
+  }
   if(act==="resend" && !confirm("Resend now?")) return;
   if(act==="reset" && !confirm("Reopen this candidate? Reminders will resume.")) return;
   const map={resend:"resend",done:"mark_complete",reset:"reset"};
@@ -344,6 +384,23 @@ function openProof(id){
 }
 $("#modalClose").onclick = ()=>$("#modal").classList.remove("show");
 $("#modal").onclick = e=>{ if(e.target.id==="modal")$("#modal").classList.remove("show"); };
+
+// ---- how it works ----
+$("#howBtn").onclick = ()=>$("#howModal").classList.add("show");
+$("#howClose").onclick = ()=>$("#howModal").classList.remove("show");
+$("#howModal").onclick = e=>{ if(e.target.id==="howModal")$("#howModal").classList.remove("show"); };
+
+// ---- downloadable Excel template ----
+$("#tmplBtn").onclick = (e)=>{
+  e.preventDefault();
+  const headers=["Student ID","First Name","Last Name","Email","State License ID/PIC Number"];
+  const example=["1234567","Jane","Doe","jane.doe@example.com","PIC1234567"];
+  const ws=XLSX.utils.aoa_to_sheet([headers, example]);
+  ws["!cols"]=headers.map(h=>({wch:Math.max(16,h.length+2)}));
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Roster");
+  XLSX.writeFile(wb,"TEACH_MOECS_Roster_Template.xlsx");
+  toast("Template downloaded");
+};
 
 // ---- template ----
 async function loadTemplate(){
@@ -371,14 +428,14 @@ $$(".modeBtn").forEach(b=>b.onclick=()=>{
   $("#manualMode").style.display = file?"none":"block";
 });
 
-const FIELDS=[["internId","Student / Intern ID",true],["firstName","First name",true],["lastName","Last name",true],["email","Email",true],["phone","Phone",false],["stateLicenseId","State license ID",false]];
+const FIELDS=[["internId","Student / Intern ID",true],["firstName","First name",true],["lastName","Last name",true],["email","Email",true],["stateLicenseId","State License ID/PIC Number",false]];
 
 // ---- shared staging list (manual + file both feed this) ----
 function stageAdd(row){
   const internId=String(row.internId??"").trim(); if(!internId) return;
   const clean={internId,
     firstName:String(row.firstName??"").trim(), lastName:String(row.lastName??"").trim(),
-    email:String(row.email??"").trim(), phone:String(row.phone??"").trim(),
+    email:String(row.email??"").trim(),
     stateLicenseId:String(row.stateLicenseId??"").trim()};
   const i=STAGE.findIndex(x=>x.internId===internId);
   if(i>=0) STAGE[i]=clean; else STAGE.push(clean);
@@ -389,7 +446,7 @@ function renderStage(){
   $("#stageRows").innerHTML = STAGE.map((c,i)=>`<tr>
     <td><strong>${esc(c.lastName)}, ${esc(c.firstName)}</strong></td>
     <td class="mono">${esc(c.internId)}</td><td>${esc(c.email||'—')}</td>
-    <td>${esc(c.phone||'—')}</td><td>${esc(c.stateLicenseId||'—')}</td>
+    <td>${esc(c.stateLicenseId||'—')}</td>
     <td><button class="xbtn" data-i="${i}" title="Remove">✕</button></td></tr>`).join("");
 }
 $("#stageRows").onclick = e=>{ const b=e.target.closest("[data-i]"); if(!b)return; STAGE.splice(+b.dataset.i,1); renderStage(); };
@@ -398,14 +455,14 @@ $("#stageClear").onclick = ()=>{ if(STAGE.length && !confirm("Clear the list wit
 // ---- manual entry ----
 $("#m_add").onclick = ()=>{
   const v=k=>$("#m_"+k).value.trim();
-  const row={internId:v("internId"),firstName:v("firstName"),lastName:v("lastName"),email:v("email"),phone:v("phone"),stateLicenseId:v("stateLicenseId")};
+  const row={internId:v("internId"),firstName:v("firstName"),lastName:v("lastName"),email:v("email"),stateLicenseId:v("stateLicenseId")};
   const miss=[]; if(!row.internId)miss.push("Student ID"); if(!row.firstName)miss.push("First name"); if(!row.lastName)miss.push("Last name"); if(!row.email)miss.push("Email");
   if(miss.length){ $("#m_err").textContent="Required: "+miss.join(", "); return; }
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(row.email)){ $("#m_err").textContent="That email doesn't look valid."; return; }
   $("#m_err").textContent="";
   const dup=STAGE.some(x=>x.internId===row.internId);
   stageAdd(row); renderStage();
-  ["internId","firstName","lastName","email","phone","stateLicenseId"].forEach(k=>$("#m_"+k).value="");
+  ["internId","firstName","lastName","email","stateLicenseId"].forEach(k=>$("#m_"+k).value="");
   $("#m_internId").focus();
   toast(dup?"Updated in list":"Added to list");
 };
@@ -414,7 +471,7 @@ $$("#manualMode input").forEach(inp=>inp.addEventListener("keydown",e=>{ if(e.ke
 // ---- file parse ----
 function guess(headers, field){
   const h=headers.map(x=>String(x).toLowerCase().replace(/[^a-z]/g,""));
-  const want={internId:["internid","studentid","student","intern","id"],firstName:["firstname","first","fname"],lastName:["lastname","last","lname"],email:["email","emailaddress","mail"],phone:["phone","phonenumber","cell","mobile"],stateLicenseId:["statelicenseid","license","licenseid","pic"]}[field];
+  const want={internId:["internid","studentid","student","intern","id"],firstName:["firstname","first","fname"],lastName:["lastname","last","lname"],email:["email","emailaddress","mail"],stateLicenseId:["statelicenseid","license","licenseid","pic","picnumber"]}[field];
   for(const w of want){ const i=h.findIndex(x=>x===w); if(i>=0)return headers[i]; }
   for(const w of want){ const i=h.findIndex(x=>x.includes(w)); if(i>=0)return headers[i]; }
   return "";
@@ -479,3 +536,4 @@ $("#signin").addEventListener("click",()=>setTimeout(loadTemplate,400));
 </script>
 </body>
 </html>
+

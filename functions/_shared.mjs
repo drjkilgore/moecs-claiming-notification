@@ -175,7 +175,6 @@ export async function sendEmail(c, { followup = false } = {}) {
   const proofLink = proofLinkFor(c);
   const subject = followup ? tpl.subjectFollowup : tpl.subject;
   const text = fill(tpl.body, c, proofLink);
-  const html = bodyToHtml(text);
 
   const attachments = [];
   const pdf = await guidePdfBase64();
@@ -195,10 +194,19 @@ export async function sendEmail(c, { followup = false } = {}) {
     from: { email: CFG.FROM_EMAIL, name: CFG.FROM_NAME },
     reply_to: { email: CFG.REPLY_TO },
     subject,
+    // Plain-text only: a message with no HTML part reads as a personal note,
+    // which Gmail keeps in Primary instead of filing under Promotions.
     content: [
       { type: "text/plain", value: text },
-      { type: "text/html", value: html },
     ],
+    // Disable SendGrid's open-tracking pixel, link rewriting, and unsubscribe
+    // footer — those are the classic bulk/marketing fingerprints that trigger
+    // the Promotions tab. Turning them off makes the send look transactional.
+    tracking_settings: {
+      click_tracking: { enable: false, enable_text: false },
+      open_tracking: { enable: false },
+      subscription_tracking: { enable: false },
+    },
     ...(attachments.length ? { attachments } : {}),
   };
 
@@ -234,5 +242,6 @@ export async function contactCandidate(c, { followup = false } = {}) {
   await saveCandidate(c);
   return result;
 }
+
 
 

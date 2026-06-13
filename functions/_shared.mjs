@@ -134,16 +134,9 @@ export function proofLinkFor(c) {
   return `${base}/proof.html?t=${c.token}`;
 }
 
-function bodyToHtml(text) {
-  // Lightweight, transactional-looking HTML — no banners, background fills, logos,
-  // or marketing footer. A plainer message lands in Gmail's Primary inbox far more
-  // reliably than a fully-branded layout (which Gmail tends to file under Promotions).
-  // Links are left with the browser-default style so they read as normal hyperlinks,
-  // not call-to-action buttons. Sender identity comes from the signature in the body.
-  const linked = esc(text).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
-  const html = linked.replace(/\n/g, "<br>");
-  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;">${html}</div>`;
-}
+// NOTE: This app sends plain-text email only (no HTML part). A message with no
+// HTML body reads as a personal note, which keeps it in Gmail's Primary inbox
+// instead of the Promotions tab. There is intentionally no HTML wrapper here.
 
 // ---- PDF attachment (bundled with the function) ---------------------------
 let _pdfCache = null;
@@ -242,6 +235,7 @@ export async function contactCandidate(c, { followup = false } = {}) {
   await saveCandidate(c);
   return result;
 }
+
 
 
 

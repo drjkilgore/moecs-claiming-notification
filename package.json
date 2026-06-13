@@ -1,0 +1,10 @@
+{
+  "name": "teach-moecs-claiming",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "#TEACH MOECS EPP Claiming notification + proof-tracking app",
+  "private": true,
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}

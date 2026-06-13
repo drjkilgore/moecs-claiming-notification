@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#TEACH · Upload your MOECS proof</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--navy:#002E5D;--crimson:#8B0000;--sky:#12A7E6;--off:#F5F5F5;--ink:#1a2030;--muted:#5b6675;--line:#e1e5ea;--ok:#1f8a4c}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;color:var(--ink);background:var(--off)}
+  header{background:var(--navy);color:#fff;padding:16px 22px;display:flex;align-items:center;gap:14px}
+  header .logo{font-weight:800;font-size:22px}
+  header .sub{color:#9fb4cc;font-size:11px;text-transform:uppercase;letter-spacing:1px}
+  .rule{height:4px;background:var(--crimson)}
+  .wrap{max-width:680px;margin:0 auto;padding:22px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px;margin-bottom:18px}
+  h1{font-size:24px;margin:0 0 6px;color:var(--navy)}
+  h2{font-size:15px;text-transform:uppercase;letter-spacing:.6px;color:var(--navy);margin:0 0 10px;border-left:4px solid var(--crimson);padding-left:10px}
+  .id{display:inline-block;background:#eaf6fd;color:var(--navy);border:1px solid #bfe3f7;border-radius:8px;padding:8px 14px;font-weight:800;font-size:18px;letter-spacing:.5px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  ol{padding-left:20px;line-height:1.7} li{margin-bottom:6px}
+  .example{border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:12px 0;background:#fff}
+  .example img{width:100%;display:block}
+  .example .cap{background:#fafbfc;padding:8px 12px;font-size:12px;color:var(--muted);border-top:1px solid var(--line)}
+  .drop{border:2px dashed var(--sky);border-radius:10px;padding:28px;text-align:center;background:#f7fcff;cursor:pointer}
+  .drop.has{border-style:solid;background:#fff}
+  .drop img{max-width:100%;max-height:280px;border-radius:6px;margin-top:8px}
+  .btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:8px;padding:13px 20px;font:inherit;font-weight:700;cursor:pointer;background:var(--navy);color:#fff;font-size:16px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .muted{color:var(--muted);font-size:13px}
+  .done{text-align:center;padding:30px}
+  .done .check{width:64px;height:64px;border-radius:50%;background:var(--ok);color:#fff;font-size:34px;line-height:64px;margin:0 auto 14px}
+  .err{color:var(--crimson);font-weight:600}
+  a{color:var(--sky)}
+</style>
+</head>
+<body>
+<header><span class="logo">#TEACH</span><div><div class="sub">Michigan Educator Certification</div><div style="font-weight:700">MOECS Provider Claiming — Proof Upload</div></div></header>
+<div class="rule"></div>
+<div class="wrap" id="wrap"><div class="card"><p class="muted">Loading your link…</p></div></div>
+
+<script>
+const API="/api";
+const t=new URLSearchParams(location.search).get("t")||"";
+const wrap=document.getElementById("wrap");
+let COMPRESSED=null;
+
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+(async()=>{
+  if(!t){ wrap.innerHTML=`<div class="card"><h1>Link not found</h1><p>This page needs a personal link from your #TEACH email. Please open the link in your most recent email.</p></div>`; return; }
+  try{
+    const r=await fetch(`${API}/candidate?t=${encodeURIComponent(t)}`);
+    const d=await r.json();
+    if(!d.ok){ wrap.innerHTML=`<div class="card"><h1>Link not valid</h1><p>${esc(d.error||'This link could not be found.')} Please use the link from your #TEACH email or contact <a href="mailto:micertifications@trainingeducators.com">micertifications@trainingeducators.com</a>.</p></div>`; return; }
+    if(d.status==="completed"){ renderDone(true); return; }
+    render(d);
+  }catch(e){ wrap.innerHTML=`<div class="card"><h1>Something went wrong</h1><p>Please try again shortly.</p></div>`; }
+})();
+
+function render(d){
+  wrap.innerHTML=`
+  <div class="card">
+    <h1>Hello, ${esc(d.firstName)} — one quick step</h1>
+    <p>Thank you for selecting <strong>#TEACH</strong> as your educator preparation provider in MOECS. To finish, upload a screenshot of your MOECS <strong>Enrollment Information</strong> screen so we can verify it. This stops the reminder emails and texts.</p>
+    <p style="margin-bottom:4px"><span class="muted">Your Student ID</span></p>
+    <span class="id">${esc(d.internId)}</span>
+  </div>
+
+  <div class="card">
+    <h2>What to capture</h2>
+    <p class="muted">After completing the steps in your guide, open <strong>Enrollment Information</strong> from your MOECS home page. Take a screenshot showing your name and <strong>#TEACH</strong> listed as your provider — like the example below.</p>
+    <div class="example">
+      <img src="/assets/example_enrollment.png" alt="Example Enrollment Information screen">
+      <div class="cap">Example only — yours will show your own name, Student ID, and #TEACH as the provider.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Upload your screenshot</h2>
+    <div class="drop" id="drop">
+      <input type="file" id="file" accept="image/*,.pdf" hidden>
+      <div id="dropMsg"><strong>Tap to choose a file</strong><br><span class="muted">or drag an image here · JPG, PNG, or PDF</span></div>
+    </div>
+    <p class="err" id="err"></p>
+    <p style="margin-top:16px"><button class="btn" id="submit" disabled>Submit proof</button></p>
+    <p class="muted">Trouble? Email <a href="mailto:micertifications@trainingeducators.com">micertifications@trainingeducators.com</a>.</p>
+  </div>`;
+
+  const drop=document.getElementById("drop"), file=document.getElementById("file"),
+        submit=document.getElementById("submit"), err=document.getElementById("err");
+  drop.onclick=()=>file.click();
+  drop.ondragover=e=>{e.preventDefault();drop.classList.add("has");};
+  drop.ondragleave=()=>drop.classList.remove("has");
+  drop.ondrop=e=>{e.preventDefault(); if(e.dataTransfer.files[0])handle(e.dataTransfer.files[0]);};
+  file.onchange=e=>{ if(e.target.files[0])handle(e.target.files[0]); };
+
+  async function handle(f){
+    err.textContent="";
+    if(f.type==="application/pdf"){
+      const b64=await toB64(f);
+      COMPRESSED={dataBase64:b64,contentType:"application/pdf",filename:f.name};
+      document.getElementById("dropMsg").innerHTML=`<strong>${esc(f.name)}</strong><br><span class="muted">PDF ready to submit</span>`;
+      drop.classList.add("has"); submit.disabled=false; return;
+    }
+    if(!f.type.startsWith("image/")){ err.textContent="Please upload an image (JPG/PNG) or PDF."; return; }
+    try{
+      const {dataUrl,blob}=await downscale(f,1600,0.82);
+      COMPRESSED={dataBase64:dataUrl.split(",")[1],contentType:"image/jpeg",filename:(f.name.replace(/\.\w+$/,"")||"proof")+".jpg"};
+      document.getElementById("dropMsg").innerHTML=`<strong>Preview</strong><img src="${dataUrl}" alt="preview"><br><span class="muted">${(blob.size/1024).toFixed(0)} KB · tap to replace</span>`;
+      drop.classList.add("has"); submit.disabled=false;
+    }catch(e){ err.textContent="Could not read that image. Try another file."; }
+  }
+
+  submit.onclick=async()=>{
+    if(!COMPRESSED)return;
+    submit.disabled=true; submit.textContent="Submitting…"; err.textContent="";
+    try{
+      const r=await fetch(`${API}/proof-upload`,{method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify(Object.assign({token:t},COMPRESSED))});
+      const d=await r.json();
+      if(d.ok) renderDone(false);
+      else { err.textContent=d.error||"Upload failed."; submit.disabled=false; submit.textContent="Submit proof"; }
+    }catch(e){ err.textContent="Network error. Please try again."; submit.disabled=false; submit.textContent="Submit proof"; }
+  };
+}
+
+function renderDone(already){
+  wrap.innerHTML=`<div class="card done">
+    <div class="check">✓</div>
+    <h1>${already?"You're all set":"Proof received — thank you!"}</h1>
+    <p class="muted">${already?"Our records show your MOECS provider claiming is already verified.":"Your MOECS provider claiming is confirmed. You will not receive further reminders."}</p>
+    <p style="margin-top:14px">Questions? <a href="mailto:micertifications@trainingeducators.com">micertifications@trainingeducators.com</a></p>
+  </div>`;
+}
+
+function toB64(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(f);});}
+function downscale(file,maxDim,quality){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let{width:w,height:h}=img;
+      const scale=Math.min(1,maxDim/Math.max(w,h));
+      w=Math.round(w*scale); h=Math.round(h*scale);
+      const c=document.createElement("canvas"); c.width=w; c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      c.toBlob(b=>{ const fr=new FileReader(); fr.onload=()=>res({dataUrl:fr.result,blob:b}); fr.readAsDataURL(b); },"image/jpeg",quality);
+    };
+    img.onerror=rej;
+    const fr=new FileReader(); fr.onload=()=>img.src=fr.result; fr.onerror=rej; fr.readAsDataURL(file);
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#TEACH · MOECS Claiming Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --navy:#002E5D; --crimson:#8B0000; --sky:#12A7E6; --silver:#C5C5C5;
+    --off:#F5F5F5; --ink:#1a2030; --muted:#5b6675; --line:#e1e5ea;
+    --ok:#1f8a4c; --warn:#b8860b; --bad:#b5302a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;color:var(--ink);background:var(--off)}
+  a{color:var(--sky)}
+  header.app{background:var(--navy);color:#fff;padding:16px 24px;display:flex;align-items:center;gap:16px}
+  header.app .logo{font-weight:800;font-size:22px;letter-spacing:.5px}
+  header.app .sub{color:#9fb4cc;font-size:12px;text-transform:uppercase;letter-spacing:1px}
+  .rule{height:4px;background:var(--crimson)}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px}
+  .tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+  .tab{padding:10px 16px;border:none;background:none;font:inherit;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
+  .tab.active{color:var(--navy);border-bottom-color:var(--sky)}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:18px}
+  h2{font-size:18px;margin:0 0 4px}
+  h3{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--navy);margin:0 0 12px}
+  p.hint{color:var(--muted);font-size:13px;margin:4px 0 14px}
+  .btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:8px;padding:10px 16px;font:inherit;font-weight:600;cursor:pointer}
+  .btn.primary{background:var(--navy);color:#fff}
+  .btn.sky{background:var(--sky);color:#fff}
+  .btn.ghost{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+  .btn.sm{padding:6px 10px;font-size:12px;border-radius:6px}
+  .btn.danger{background:#fff;color:var(--bad);border:1px solid var(--bad)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .stat{flex:1;min-width:120px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--sky);border-radius:8px;padding:12px 14px}
+  .stat .n{font-size:26px;font-weight:800;color:var(--navy)}
+  .stat .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .stat.completed{border-left-color:var(--ok)} .stat.contacted{border-left-color:var(--warn)}
+  .stat.pending{border-left-color:var(--silver)} .stat.errors{border-left-color:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);background:#fafbfc;position:sticky;top:0}
+  .tablewrap{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  .pill.pending{background:#eceef1;color:#555}
+  .pill.contacted{background:#fdf3e2;color:#9a6b00}
+  .pill.completed{background:#e4f5ea;color:#1f8a4c}
+  .err{color:var(--bad);font-size:11px}
+  input[type=text],input[type=password],textarea,select{width:100%;padding:9px 11px;border:1px solid var(--silver);border-radius:7px;font:inherit;background:#fff}
+  textarea{min-height:200px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.5}
+  label.fld{display:block;font-size:12px;font-weight:600;color:var(--navy);margin:14px 0 5px}
+  .row{display:flex;gap:14px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:240px}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .check{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--navy)}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--navy);color:#fff;padding:14px 18px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.2);max-width:380px;font-size:14px;z-index:50;opacity:0;transform:translateY(10px);transition:.25s}
+  .toast.show{opacity:1;transform:none}
+  .toast.bad{background:var(--crimson)}
+  .health{display:flex;gap:10px;flex-wrap:wrap}
+  .chip{font-size:12px;font-weight:600;padding:6px 11px;border-radius:999px;border:1px solid var(--line)}
+  .chip.on{background:#e4f5ea;color:#1f8a4c;border-color:#bfe6cd}
+  .chip.off{background:#fde8e7;color:#b5302a;border-color:#f2c4c1}
+  .gate{max-width:420px;margin:60px auto;text-align:center}
+  .modal{position:fixed;inset:0;background:rgba(10,18,30,.55);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+  .modal.show{display:flex}
+  .modal .box{background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:90vh;overflow:auto}
+  .modal .box .hd{background:var(--navy);color:#fff;padding:14px 18px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  .modal .box .bd{padding:18px;text-align:center}
+  .modal img{max-width:100%;border:1px solid var(--line);border-radius:8px}
+  .muted{color:var(--muted);font-size:12px}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+</style>
+</head>
+<body>
+<header class="app">
+  <span class="logo">#TEACH</span>
+  <div><div class="sub">Michigan Educator Certification</div><div style="font-weight:700">MOECS Claiming Console</div></div>
+  <div style="margin-left:auto"><button class="btn ghost sm" id="signout" style="display:none">Sign out</button></div>
+</header>
+<div class="rule"></div>
+
+<!-- GATE -->
+<div id="gate" class="wrap" style="display:none">
+  <div class="card gate">
+    <h2>Admin sign-in</h2>
+    <p class="hint">Enter the admin key for this console (the <span class="mono">ADMIN_KEY</span> set in Netlify).</p>
+    <input type="password" id="adminKey" placeholder="Admin key" autocomplete="current-password">
+    <div style="margin-top:14px"><button class="btn primary" id="signin">Sign in</button></div>
+    <p class="err" id="gateErr"></p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="wrap" style="display:none">
+  <div class="tabs">
+    <button class="tab active" data-tab="status">Recipients &amp; Status</button>
+    <button class="tab" data-tab="upload">Upload Roster</button>
+    <button class="tab" data-tab="template">Email Content</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </div>
+
+  <!-- STATUS -->
+  <section data-panel="status">
+    <div class="stats" id="stats"></div>
+    <div class="card">
+      <div class="toolbar">
+        <button class="btn ghost sm" id="refresh">Refresh</button>
+        <label class="check"><input type="checkbox" id="selAll"> Select all shown</label>
+        <span style="flex:1"></span>
+        <button class="btn primary sm" id="sendSel">Send to selected</button>
+        <button class="btn sky sm" id="sendPending">Send to all pending</button>
+      </div>
+      <input type="text" id="filter" placeholder="Filter by name, ID, email, or status…" style="margin-bottom:12px">
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th style="width:30px"></th><th>Name</th><th>Student ID</th><th>Email</th><th>Phone</th>
+            <th>Status</th><th>Attempts</th><th>Last contact</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="9" class="muted" style="padding:18px">No candidates imported yet. Use “Upload Roster”.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- UPLOAD -->
+  <section data-panel="upload" style="display:none">
+    <div class="card">
+      <h2>Upload roster</h2>
+      <p class="hint">Drop in the MOECS claims roster (.xlsx or .csv). Columns are auto-detected; confirm the mapping, then import. Re-importing updates contact info and never resets anyone's progress.</p>
+      <input type="file" id="file" accept=".xlsx,.xls,.csv">
+      <div id="mapArea" style="display:none">
+        <h3 style="margin-top:18px">Column mapping</h3>
+        <div class="row" id="mapRow"></div>
+        <p class="hint" id="previewInfo"></p>
+        <div class="tablewrap" style="max-height:300px"><table id="previewTbl"></table></div>
+        <div style="margin-top:14px">
+          <button class="btn primary" id="importBtn">Import to system</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEMPLATE -->
+  <section data-panel="template" style="display:none">
+    <div class="card">
+      <h2>Email content</h2>
+      <p class="hint">Merge fields: <span class="mono">{firstName}</span> <span class="mono">{internId}</span> <span class="mono">{proofLink}</span> <span class="mono">{guideLink}</span>. The MDE step-by-step guide PDF is attached to every email automatically.</p>
+      <label class="fld">Subject — initial</label>
+      <input type="text" id="tSubject">
+      <label class="fld">Subject — follow-up</label>
+      <input type="text" id="tSubjectF">
+      <label class="fld">Email body</label>
+      <textarea id="tBody"></textarea>
+      <div style="margin-top:14px"><button class="btn primary" id="saveTpl">Save content</button></div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section data-panel="settings" style="display:none">
+    <div class="card">
+      <h2>System health</h2>
+      <p class="hint">These reflect the environment variables configured in Netlify.</p>
+      <div class="health" id="health"></div>
+      <h3 style="margin-top:20px">Follow-up schedule</h3>
+      <p class="hint" id="cadence"></p>
+      <h3 style="margin-top:20px">Danger zone</h3>
+      <button class="btn danger sm" id="purge">Remove all candidates</button>
+    </div>
+  </section>
+</div>
+
+<!-- proof modal -->
+<div class="modal" id="modal"><div class="box">
+  <div class="hd"><span id="modalTitle">Proof</span><button class="btn ghost sm" id="modalClose">Close</button></div>
+  <div class="bd" id="modalBody"></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "/api";
+let KEY = sessionStorage.getItem("teach_admin_key") || "";
+let CANDIDATES = [], PARSED = null;
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast show"+(bad?" bad":""); setTimeout(()=>t.className="toast",4000); }
+function hdrs(extra){ return Object.assign({"x-admin-key":KEY}, extra||{}); }
+async function api(path, opts={}){
+  const r = await fetch(API+path, Object.assign({headers:hdrs(opts.json?{"content-type":"application/json"}:{})}, opts,
+    opts.json?{body:JSON.stringify(opts.json),method:opts.method||"POST"}:{}));
+  if(r.status===401){ showGate("Key rejected."); throw new Error("unauthorized"); }
+  return r;
+}
+
+// ---- gate ----
+function showGate(err){ $("#app").style.display="none"; $("#gate").style.display="block"; $("#signout").style.display="none"; if(err)$("#gateErr").textContent=err; }
+function showApp(){ $("#gate").style.display="none"; $("#app").style.display="block"; $("#signout").style.display="inline-flex"; }
+$("#signin").onclick = async ()=>{
+  KEY = $("#adminKey").value.trim(); sessionStorage.setItem("teach_admin_key",KEY);
+  try{ await load(); showApp(); }catch(e){ /* gate stays */ }
+};
+$("#adminKey").addEventListener("keydown",e=>{ if(e.key==="Enter")$("#signin").click(); });
+$("#signout").onclick = ()=>{ sessionStorage.removeItem("teach_admin_key"); KEY=""; showGate(); };
+
+// ---- tabs ----
+$$(".tab").forEach(t=>t.onclick=()=>{
+  $$(".tab").forEach(x=>x.classList.remove("active")); t.classList.add("active");
+  $$("[data-panel]").forEach(p=>p.style.display = p.dataset.panel===t.dataset.tab?"block":"none");
+});
+
+// ---- load + render ----
+async function load(){
+  const r = await api("/get-candidates"); const d = await r.json();
+  if(!d.ok) throw new Error("load failed");
+  CANDIDATES = d.candidates;
+  renderStats(d.summary); renderHealth(d.env); renderRows();
+}
+function renderStats(s){
+  $("#stats").innerHTML = [
+    ["total","Total",""],["pending","Pending","pending"],["contacted","Contacted","contacted"],
+    ["completed","Completed","completed"],["errors","Send errors","errors"]
+  ].map(([k,l,c])=>`<div class="stat ${c}"><div class="n">${s[k]||0}</div><div class="l">${l}</div></div>`).join("");
+}
+function renderHealth(env){
+  $("#health").innerHTML = [
+    ["SendGrid email", env.sendgrid],["Public URL", !!env.siteUrl]
+  ].map(([l,on])=>`<span class="chip ${on?'on':'off'}">${l}: ${on?'ready':'not set'}</span>`).join("");
+  $("#cadence").textContent = `Follow-ups send automatically every ${env.followupHours} hours (up to ${env.maxFollowups} total emails) until a candidate uploads proof. Site URL: ${env.siteUrl||'(not detected — set after first deploy)'}`;
+}
+function statusPill(s){ return `<span class="pill ${s}">${s}</span>`; }
+function fmt(d){ return d? new Date(d).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—'; }
+function renderRows(){
+  const f = ($("#filter").value||"").toLowerCase();
+  const list = CANDIDATES.filter(c=>!f || [c.firstName,c.lastName,c.internId,c.email,c.status].join(" ").toLowerCase().includes(f));
+  if(!list.length){ $("#rows").innerHTML=`<tr><td colspan="9" class="muted" style="padding:18px">No matching candidates.</td></tr>`; return; }
+  $("#rows").innerHTML = list.map(c=>`<tr>
+    <td><input type="checkbox" class="rowchk" value="${c.internId}" ${c.status==='completed'?'disabled':''}></td>
+    <td><strong>${esc(c.lastName)}, ${esc(c.firstName)}</strong>${c.lastError?`<div class="err">${esc(c.lastError)}</div>`:''}</td>
+    <td class="mono">${esc(c.internId)}</td>
+    <td>${esc(c.email||'—')}</td>
+    <td>${esc(c.phone||'—')}</td>
+    <td>${statusPill(c.status)}</td>
+    <td>${c.attempts||0}</td>
+    <td class="muted">${fmt(c.lastContactedAt)}</td>
+    <td style="white-space:nowrap">
+      ${c.status!=='completed'?`<button class="btn ghost sm" data-act="resend" data-id="${c.internId}">Resend</button>`:''}
+      ${c.proofKey?`<button class="btn ghost sm" data-act="proof" data-id="${c.internId}">Proof</button>`:''}
+      ${c.status!=='completed'?`<button class="btn ghost sm" data-act="done" data-id="${c.internId}">Mark done</button>`:`<button class="btn ghost sm" data-act="reset" data-id="${c.internId}">Reopen</button>`}
+    </td></tr>`).join("");
+  $("#selAll").checked=false;
+}
+function esc(s){ return String(s??"").replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+$("#filter").oninput = renderRows;
+$("#refresh").onclick = ()=>load().then(()=>toast("Refreshed"));
+$("#selAll").onchange = e=>$$(".rowchk").forEach(c=>{ if(!c.disabled)c.checked=e.target.checked; });
+
+function selectedIds(){ return $$(".rowchk:checked").map(c=>c.value); }
+async function sendBatch(ids){
+  if(!ids.length){ toast("No candidates selected",true); return; }
+  if(!confirm(`Send email to ${ids.length} candidate(s) now?`)) return;
+  const r = await api("/send-initial",{json:{internIds:ids}});
+  const d = await r.json();
+  if(d.ok){ toast(`Sent — ${d.sentEmail} email(s)`); load(); }
+  else toast(d.error||"Send failed",true);
+}
+$("#sendSel").onclick = ()=>sendBatch(selectedIds());
+$("#sendPending").onclick = ()=>sendBatch(CANDIDATES.filter(c=>c.status==='pending').map(c=>c.internId));
+
+// row actions
+$("#rows").onclick = async e=>{
+  const b = e.target.closest("[data-act]"); if(!b) return;
+  const id=b.dataset.id, act=b.dataset.act;
+  if(act==="proof"){ openProof(id); return; }
+  if(act==="resend" && !confirm("Resend now?")) return;
+  if(act==="reset" && !confirm("Reopen this candidate? Reminders will resume.")) return;
+  const map={resend:"resend",done:"mark_complete",reset:"reset"};
+  const r = await api("/admin-action",{json:{action:map[act],internId:id}});
+  const d=await r.json(); if(d.ok){ toast("Done"); load(); } else toast(d.error||"Failed",true);
+};
+
+function openProof(id){
+  const c = CANDIDATES.find(x=>x.internId===id);
+  $("#modalTitle").textContent = `Proof — ${c.firstName} ${c.lastName} (${c.internId})`;
+  const url = `${API}/proof-view?id=${encodeURIComponent(id)}`;
+  $("#modalBody").innerHTML = (c.proofContentType||'').includes('pdf')
+    ? `<p class="muted">PDF proof uploaded.</p><a class="btn primary" href="${url}" target="_blank">Open PDF</a>`
+    : `<img src="${url}" alt="proof"><p class="muted" style="margin-top:10px">Uploaded ${fmt(c.completedAt)}</p>`;
+  // image src needs the admin key; fetch as blob
+  if(!(c.proofContentType||'').includes('pdf')){
+    fetch(url,{headers:hdrs()}).then(r=>r.blob()).then(b=>{ $("#modalBody img").src=URL.createObjectURL(b); });
+  }
+  $("#modal").classList.add("show");
+}
+$("#modalClose").onclick = ()=>$("#modal").classList.remove("show");
+$("#modal").onclick = e=>{ if(e.target.id==="modal")$("#modal").classList.remove("show"); };
+
+// ---- template ----
+async function loadTemplate(){
+  const r = await api("/template",{method:"GET",headers:hdrs()}); const d=await r.json();
+  if(d.ok){ $("#tSubject").value=d.template.subject; $("#tSubjectF").value=d.template.subjectFollowup; $("#tBody").value=d.template.body; }
+}
+$("#saveTpl").onclick = async ()=>{
+  const r=await api("/template",{json:{subject:$("#tSubject").value,subjectFollowup:$("#tSubjectF").value,body:$("#tBody").value}});
+  const d=await r.json(); toast(d.ok?"Content saved":(d.error||"Save failed"),!d.ok);
+};
+
+// ---- purge ----
+$("#purge").onclick = async ()=>{
+  if(!confirm("Remove ALL candidates and their progress? This cannot be undone.")) return;
+  if(!confirm("Really? Type-safe second confirmation.")) return;
+  const r=await api("/admin-action",{json:{action:"purge_all"}}); const d=await r.json();
+  toast(d.ok?`Removed ${d.purged}`:"Failed",!d.ok); load();
+};
+
+// ---- upload + parse ----
+const FIELDS=[["internId","Student / Intern ID",true],["firstName","First name",true],["lastName","Last name",true],["email","Email",true],["phone","Phone",false],["stateLicenseId","State license ID",false]];
+function guess(headers, field){
+  const h=headers.map(x=>String(x).toLowerCase().replace(/[^a-z]/g,""));
+  const want={internId:["internid","studentid","student","intern","id"],firstName:["firstname","first","fname"],lastName:["lastname","last","lname"],email:["email","emailaddress","mail"],phone:["phone","phonenumber","cell","mobile"],stateLicenseId:["statelicenseid","license","licenseid","pic"]}[field];
+  for(const w of want){ const i=h.findIndex(x=>x===w); if(i>=0)return headers[i]; }
+  for(const w of want){ const i=h.findIndex(x=>x.includes(w)); if(i>=0)return headers[i]; }
+  return "";
+}
+$("#file").onchange = async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const buf=await f.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array"});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{defval:""});
+  if(!rows.length){ toast("No rows found",true); return; }
+  PARSED={headers:Object.keys(rows[0]), rows};
+  buildMap();
+};
+function buildMap(){
+  $("#mapArea").style.display="block";
+  $("#mapRow").innerHTML = FIELDS.map(([key,label,req])=>{
+    const g=guess(PARSED.headers,key);
+    return `<div><label class="fld">${label}${req?' *':''}</label><select data-f="${key}">
+      <option value="">— none —</option>
+      ${PARSED.headers.map(h=>`<option value="${esc(h)}" ${h===g?'selected':''}>${esc(h)}</option>`).join("")}
+    </select></div>`;
+  }).join("");
+  $("#mapRow").onchange=preview; preview();
+}
+function mapping(){ const m={}; $$('#mapRow select').forEach(s=>m[s.dataset.f]=s.value); return m; }
+function preview(){
+  const m=mapping(), rows=PARSED.rows;
+  $("#previewInfo").textContent=`${rows.length} rows detected. Showing first 5.`;
+  const cols=FIELDS.map(([k,l])=>l);
+  $("#previewTbl").innerHTML=`<thead><tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead>`+
+    `<tbody>${rows.slice(0,5).map(r=>`<tr>${FIELDS.map(([k])=>`<td>${esc(m[k]?r[m[k]]:'')}</td>`).join("")}</tr>`).join("")}</tbody>`;
+}
+$("#importBtn").onclick = async ()=>{
+  const m=mapping();
+  for(const [k,l,req] of FIELDS){ if(req && !m[k]){ toast(`Map a column for: ${l}`,true); return; } }
+  const out = PARSED.rows.map(r=>{ const o={}; FIELDS.forEach(([k])=>o[k]= m[k]? String(r[m[k]]??"").trim():""); return o; })
+    .filter(o=>o.internId);
+  if(!out.length){ toast("No rows with a Student ID",true); return; }
+  $("#importBtn").disabled=true; $("#importBtn").textContent="Importing…";
+  const r=await api("/import-roster",{json:{rows:out}}); const d=await r.json();
+  $("#importBtn").disabled=false; $("#importBtn").textContent="Import to system";
+  if(d.ok){ toast(`Imported — ${d.added} new, ${d.updated} updated, ${d.skipped} skipped`); load(); $$(".tab")[0].click(); }
+  else toast(d.error||"Import failed",true);
+};
+
+// ---- boot ----
+(async()=>{
+  if(KEY){ try{ await load(); await loadTemplate(); showApp(); return; }catch(e){} }
+  showGate();
+})();
+// load template after sign-in too
+$("#signin").addEventListener("click",()=>setTimeout(loadTemplate,400));
+</script>
+</body>
+</html>

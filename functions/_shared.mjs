@@ -136,19 +136,14 @@ export function proofLinkFor(c) {
 }
 
 function bodyToHtml(text) {
-  // turn URLs into links + preserve line breaks, branded wrapper
-  const linked = esc(text).replace(/(https?:\/\/[^\s<]+)/g,
-    '<a href="$1" style="color:#12A7E6;font-weight:600;">$1</a>');
+  // Lightweight, transactional-looking HTML — no banners, background fills, logos,
+  // or marketing footer. A plainer message lands in Gmail's Primary inbox far more
+  // reliably than a fully-branded layout (which Gmail tends to file under Promotions).
+  // Links are left with the browser-default style so they read as normal hyperlinks,
+  // not call-to-action buttons. Sender identity comes from the signature in the body.
+  const linked = esc(text).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
   const html = linked.replace(/\n/g, "<br>");
-  return `<div style="font-family:Inter,Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#1a2030;">
-    <div style="background:#002E5D;padding:18px 24px;border-radius:8px 8px 0 0;">
-      <span style="color:#fff;font-weight:800;font-size:20px;letter-spacing:.5px;">#TEACH</span>
-      <span style="color:#9fb4cc;font-size:12px;float:right;margin-top:6px;">MICHIGAN EDUCATOR CERTIFICATION</span>
-    </div>
-    <div style="height:4px;background:#8B0000;"></div>
-    <div style="padding:24px;background:#F5F5F5;border-radius:0 0 8px 8px;">${html}</div>
-    <p style="font-size:11px;color:#888;margin-top:14px;">#TEACH — Training Educators and Creating Hope · This is an official certification notice.</p>
-  </div>`;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;">${html}</div>`;
 }
 
 // ---- PDF attachment (bundled with the function) ---------------------------
@@ -241,3 +236,4 @@ export async function contactCandidate(c, { followup = false } = {}) {
   await saveCandidate(c);
   return result;
 }
+

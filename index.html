@@ -523,14 +523,35 @@ $("#addParsedBtn").onclick = ()=>{
   toast(`Added ${out.length} from file`);
 };
 
-// ---- import the staged list (manual + file) ----
+// ---- import the staged list (manual + file), in small batches ----
 $("#importBtn").onclick = async ()=>{
   if(!STAGE.length){ toast("Add at least one candidate first",true); return; }
-  $("#importBtn").disabled=true; $("#importBtn").textContent="Importing…";
-  const r=await api("/import-roster",{json:{rows:STAGE}}); const d=await r.json();
-  $("#importBtn").disabled=false; $("#importBtn").textContent="Import to system";
-  if(d.ok){ toast(`Imported — ${d.added} new, ${d.updated} updated, ${d.skipped} skipped`); STAGE=[]; renderStage(); load(); $$(".tab")[0].click(); }
-  else toast(d.error||"Import failed",true);
+  const BATCH=25, total=STAGE.length;
+  let added=0, updated=0, skipped=0, done=0, failed=0;
+  $("#importBtn").disabled=true; $("#stageClear").disabled=true;
+  try{
+    for(let i=0;i<STAGE.length;i+=BATCH){
+      const chunk=STAGE.slice(i,i+BATCH);
+      $("#importBtn").textContent=`Importing… ${done}/${total}`;
+      try{
+        const r=await api("/import-roster",{json:{rows:chunk}});
+        const d=await r.json();
+        if(d.ok){ added+=d.added||0; updated+=d.updated||0; skipped+=d.skipped||0; }
+        else failed+=chunk.length;
+      }catch(e){ failed+=chunk.length; }
+      done+=chunk.length;
+    }
+  }finally{
+    $("#importBtn").disabled=false; $("#stageClear").disabled=false;
+    $("#importBtn").textContent="Import to system";
+  }
+  if(failed){
+    toast(`Imported ${added} new, ${updated} updated. ${failed} didn't go through — click Import again to retry the rest.`, true);
+    load();
+  }else{
+    toast(`Imported — ${added} new, ${updated} updated, ${skipped} skipped`);
+    STAGE=[]; renderStage(); load(); $$(".tab")[0].click();
+  }
 };
 
 // ---- boot ----
@@ -543,6 +564,7 @@ $("#signin").addEventListener("click",()=>setTimeout(loadTemplate,400));
 </script>
 </body>
 </html>
+
 
 
 

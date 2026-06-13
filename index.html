@@ -309,7 +309,7 @@ function fmt(d){ return d? new Date(d).toLocaleString(undefined,{month:'short',d
 function renderRows(){
   const f = ($("#filter").value||"").toLowerCase();
   const list = CANDIDATES.filter(c=>!f || [c.firstName,c.lastName,c.internId,c.email,c.status].join(" ").toLowerCase().includes(f));
-  if(!list.length){ $("#rows").innerHTML=`<tr><td colspan="9" class="muted" style="padding:18px">No matching candidates.</td></tr>`; return; }
+  if(!list.length){ $("#rows").innerHTML=`<tr><td colspan="8" class="muted" style="padding:18px">No matching candidates.</td></tr>`; return; }
   $("#rows").innerHTML = list.map(c=>`<tr>
     <td><input type="checkbox" class="rowchk" value="${c.internId}" ${c.status==='completed'?'disabled':''}></td>
     <td><strong>${esc(c.lastName)}, ${esc(c.firstName)}</strong>${c.lastError?`<div class="err">${esc(c.lastError)}</div>`:''}</td>
@@ -328,6 +328,19 @@ function renderRows(){
 }
 function esc(s){ return String(s??"").replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
+// Recompute the stat cards + table from the in-memory list, so bulk actions
+// can show progress live without waiting on a full server reload each step.
+function localSummary(){
+  return {
+    total: CANDIDATES.length,
+    pending: CANDIDATES.filter(c=>c.status==='pending').length,
+    contacted: CANDIDATES.filter(c=>c.status==='contacted').length,
+    completed: CANDIDATES.filter(c=>c.status==='completed').length,
+    errors: CANDIDATES.filter(c=>c.lastError).length,
+  };
+}
+function refreshUI(){ renderStats(localSummary()); renderRows(); }
+
 $("#filter").oninput = renderRows;
 $("#refresh").onclick = ()=>load().then(()=>toast("Refreshed"));
 $("#selAll").onchange = e=>$$(".rowchk").forEach(c=>{ if(!c.disabled)c.checked=e.target.checked; });
@@ -336,10 +349,36 @@ function selectedIds(){ return $$(".rowchk:checked").map(c=>c.value); }
 async function sendBatch(ids){
   if(!ids.length){ toast("No candidates selected",true); return; }
   if(!confirm(`Send email to ${ids.length} candidate(s) now?`)) return;
-  const r = await api("/send-initial",{json:{internIds:ids}});
-  const d = await r.json();
-  if(d.ok){ toast(`Sent — ${d.sentEmail} email(s)`); load(); }
-  else toast(d.error||"Send failed",true);
+  const BATCH=10, total=ids.length;
+  const sb=$("#sendSel"), sp=$("#sendPending"), db=$("#delSel");
+  [sb,sp,db].forEach(b=>b.disabled=true);
+  let sent=0, failed=0, done=0;
+  try{
+    for(let i=0;i<ids.length;i+=BATCH){
+      const chunk=ids.slice(i,i+BATCH);
+      const label=`Sending… ${done}/${total}`; sb.textContent=label; sp.textContent=label;
+      try{
+        const r=await api("/send-initial",{json:{internIds:chunk}});
+        const d=await r.json();
+        if(d.ok && Array.isArray(d.results)){
+          const now=new Date().toISOString();
+          for(const res of d.results){
+            const c=CANDIDATES.find(x=>x.internId===res.internId); if(!c) continue;
+            if(res.email==="sent"){ if(c.status!=="completed")c.status="contacted"; c.attempts=(c.attempts||0)+1; c.lastContactedAt=now; c.lastError=null; sent++; }
+            else if(typeof res.email==="string" && res.email.startsWith("error")){ if(c.status!=="completed")c.status="contacted"; c.attempts=(c.attempts||0)+1; c.lastContactedAt=now; c.lastError=res.email; failed++; }
+            // skipped (already contacted/completed/not found): leave unchanged
+          }
+        } else { failed+=chunk.length; }
+      }catch(e){ failed+=chunk.length; }
+      done+=chunk.length;
+      refreshUI(); // table + counts update live after each batch
+    }
+  }finally{
+    [sb,sp,db].forEach(b=>b.disabled=false);
+    sb.textContent="Send to selected"; sp.textContent="Send to all pending";
+  }
+  toast(`Sent ${sent} email(s)${failed?` · ${failed} had errors`:''}`, !!failed && !sent);
+  load(); // final sync with server truth
 }
 $("#sendSel").onclick = ()=>sendBatch(selectedIds());
 $("#sendPending").onclick = ()=>sendBatch(CANDIDATES.filter(c=>c.status==='pending').map(c=>c.internId));
@@ -347,13 +386,30 @@ $("#sendPending").onclick = ()=>sendBatch(CANDIDATES.filter(c=>c.status==='pendi
 async function deleteIds(ids){
   if(!ids.length){ toast("No candidates selected",true); return; }
   if(!confirm(`Permanently delete ${ids.length} candidate(s)? This removes them and their proof link and cannot be undone.`)) return;
-  let ok=0, fail=0;
-  for(const id of ids){
-    try{ const r=await api("/admin-action",{json:{action:"delete",internId:id}}); const d=await r.json(); d.ok?ok++:fail++; }
-    catch{ fail++; }
+  const BATCH=10, total=ids.length;
+  const sb=$("#sendSel"), sp=$("#sendPending"), db=$("#delSel");
+  [sb,sp,db].forEach(b=>b.disabled=true);
+  let ok=0, fail=0, done=0;
+  try{
+    for(let i=0;i<ids.length;i+=BATCH){
+      const chunk=ids.slice(i,i+BATCH);
+      db.textContent=`Deleting… ${done}/${total}`;
+      const deleted=[];
+      await Promise.all(chunk.map(async id=>{
+        try{ const r=await api("/admin-action",{json:{action:"delete",internId:id}}); const d=await r.json(); if(d.ok){ ok++; deleted.push(id);} else fail++; }
+        catch{ fail++; }
+      }));
+      if(deleted.length){ const ds=new Set(deleted); CANDIDATES=CANDIDATES.filter(c=>!ds.has(c.internId)); }
+      done+=chunk.length;
+      refreshUI(); // rows disappear live as they're deleted
+    }
+  }finally{
+    [sb,sp,db].forEach(b=>b.disabled=false);
+    db.textContent="Delete selected";
   }
   toast(`Deleted ${ok}${fail?` · ${fail} failed`:''}`, !!fail && !ok);
-  load();
+  // No server reload here: the storage index can lag for a moment right after
+  // deletes and would briefly re-show removed rows. Local state is accurate.
 }
 $("#delSel").onclick = ()=>deleteIds(selectedIds());
 
@@ -366,7 +422,9 @@ $("#rows").onclick = async e=>{
     const c=CANDIDATES.find(x=>x.internId===id);
     if(!confirm(`Permanently delete ${c?c.firstName+' '+c.lastName:'this candidate'} (${id})? This cannot be undone.`)) return;
     const r=await api("/admin-action",{json:{action:"delete",internId:id}});
-    const d=await r.json(); if(d.ok){ toast("Deleted"); load(); } else toast(d.error||"Failed",true);
+    const d=await r.json();
+    if(d.ok){ CANDIDATES=CANDIDATES.filter(x=>x.internId!==id); refreshUI(); toast("Deleted"); }
+    else toast(d.error||"Failed",true);
     return;
   }
   if(act==="resend" && !confirm("Resend now?")) return;
@@ -424,7 +482,8 @@ $("#purge").onclick = async ()=>{
   if(!confirm("Remove ALL candidates and their progress? This cannot be undone.")) return;
   if(!confirm("Really? Type-safe second confirmation.")) return;
   const r=await api("/admin-action",{json:{action:"purge_all"}}); const d=await r.json();
-  toast(d.ok?`Removed ${d.purged}`:"Failed",!d.ok); load();
+  if(d.ok){ CANDIDATES=[]; refreshUI(); toast(`Removed ${d.purged}`); }
+  else toast("Failed",true);
 };
 
 // ---- add candidates: mode toggle ----
@@ -564,6 +623,7 @@ $("#signin").addEventListener("click",()=>setTimeout(loadTemplate,400));
 </script>
 </body>
 </html>
+
 
 
 

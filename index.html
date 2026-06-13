@@ -233,7 +233,7 @@
 <div class="modal" id="howModal"><div class="box">
   <div class="hd"><span>How this console works</span><button class="btn ghost sm" id="howClose">Close</button></div>
   <div class="bd" style="text-align:left">
-    <p style="margin-top:0">This console emails each teacher candidate the MDE notice to select <strong>#TEACH</strong> as their educator preparation provider (EPP) in MOECS, tracks who has finished, and automatically reminds anyone who hasn't — every 48 hours until they upload proof.</p>
+    <p style="margin-top:0">This console emails each teacher candidate the MDE notice to select <strong>#TEACH</strong> as their educator preparation provider (EPP) in MOECS, tracks who has finished, and automatically reminds anyone who hasn't — every 48 hours until they upload proof. Whenever a candidate submits proof, a notification email is also sent to <span class="mono">teachmoecs@gmail.com</span>.</p>
 
     <h3 style="margin-top:18px">What each candidate receives</h3>
     <ul style="line-height:1.7;padding-left:20px">
@@ -245,9 +245,10 @@
     <h3 style="margin-top:18px">Using the console</h3>
     <ol style="line-height:1.7;padding-left:20px">
       <li><strong>Add candidates</strong> on the <em>Add Candidates</em> tab — type them in one at a time, or upload a roster file (<span class="mono">.xlsx</span>/<span class="mono">.csv</span>). For files, download the Excel template first so the columns match. Both methods build one list you review before importing.</li>
-      <li><strong>Import</strong> the reviewed list. Re-importing the same Student ID updates contact info and never resets anyone's progress.</li>
-      <li><strong>Send</strong> from the <em>Recipients &amp; Status</em> tab — select people and "Send to selected," or "Send to all pending."</li>
-      <li><strong>Track</strong> status as it updates: when a candidate uploads a screenshot of their MOECS <em>Enrollment Information</em> screen showing #TEACH, they're marked <strong>Completed</strong> and reminders stop. Use the <em>Proof</em> button on their row to view what they submitted.</li>
+      <li><strong>Import</strong> the reviewed list. Re-importing the same Student ID updates contact info and never resets anyone's progress. Newly added people are <em>pending</em> and sort to the top of the list.</li>
+      <li><strong>Send</strong> from the <em>Recipients &amp; Status</em> tab — select people and "Send to selected," or "Send to all pending." Sends go out in batches with a live count, and rows update from Pending to Contacted as they go.</li>
+      <li><strong>Filter and find</strong> using the stat cards at the top — click <em>Pending</em>, <em>Contacted</em>, <em>Completed</em>, or <em>Send errors</em> to show just those, and <em>Total</em> to see everyone. The search box filters within whatever you've selected.</li>
+      <li><strong>Track and view proof:</strong> when a candidate uploads a screenshot of their MOECS <em>Enrollment Information</em> screen showing #TEACH, they're marked <strong>Completed</strong> and reminders stop. Click the <em>Proof</em> button on their row to view what they submitted, or <em>Download proofs</em> to save every submitted screenshot as a single zip.</li>
       <li><strong>Edit the wording</strong> anytime on the <em>Email Content</em> tab using the merge fields shown there.</li>
       <li><strong>Clean up</strong> test or duplicate records with the red <em>Delete</em> button on a row, or by selecting rows and clicking <em>Delete selected</em>. Deletes ask for confirmation and cannot be undone.</li>
     </ol>

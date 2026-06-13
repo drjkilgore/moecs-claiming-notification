@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root{
     --navy:#002E5D; --crimson:#8B0000; --sky:#12A7E6; --silver:#C5C5C5;
@@ -36,7 +37,9 @@
   .btn.danger{background:#fff;color:var(--bad);border:1px solid var(--bad)}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px}
-  .stat{flex:1;min-width:120px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--sky);border-radius:8px;padding:12px 14px}
+  .stat{flex:1;min-width:120px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--sky);border-radius:8px;padding:12px 14px;cursor:pointer;transition:box-shadow .12s}
+  .stat:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+  .stat.active{box-shadow:0 0 0 2px var(--navy)}
   .stat .n{font-size:26px;font-weight:800;color:var(--navy)}
   .stat .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
   .stat.completed{border-left-color:var(--ok)} .stat.contacted{border-left-color:var(--warn)}
@@ -113,6 +116,7 @@
     <div class="card">
       <div class="toolbar">
         <button class="btn ghost sm" id="refresh">Refresh</button>
+        <button class="btn ghost sm" id="dlProofs">Download proofs</button>
         <label class="check"><input type="checkbox" id="selAll"> Select all shown</label>
         <span style="flex:1"></span>
         <button class="btn danger sm" id="delSel">Delete selected</button>
@@ -256,7 +260,7 @@
 <script>
 const API = "/api";
 let KEY = sessionStorage.getItem("teach_admin_key") || "";
-let CANDIDATES = [], PARSED = null, STAGE = [];
+let CANDIDATES = [], PARSED = null, STAGE = [], STATUSFILTER = "all";
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -294,10 +298,11 @@ async function load(){
 }
 function renderStats(s){
   $("#stats").innerHTML = [
-    ["total","Total",""],["pending","Pending","pending"],["contacted","Contacted","contacted"],
-    ["completed","Completed","completed"],["errors","Send errors","errors"]
-  ].map(([k,l,c])=>`<div class="stat ${c}"><div class="n">${s[k]||0}</div><div class="l">${l}</div></div>`).join("");
+    ["total","Total","","all"],["pending","Pending","pending","pending"],["contacted","Contacted","contacted","contacted"],
+    ["completed","Completed","completed","completed"],["errors","Send errors","errors","errors"]
+  ].map(([k,l,c,f])=>`<div class="stat ${c} ${STATUSFILTER===f?'active':''}" data-filter="${f}" title="Click to show ${l.toLowerCase()}"><div class="n">${s[k]||0}</div><div class="l">${l}</div></div>`).join("");
 }
+$("#stats").onclick = e=>{ const card=e.target.closest("[data-filter]"); if(!card) return; STATUSFILTER=card.dataset.filter; refreshUI(); };
 function renderHealth(env){
   $("#health").innerHTML = [
     ["SendGrid email", env.sendgrid],["Public URL", !!env.siteUrl]
@@ -308,7 +313,11 @@ function statusPill(s){ return `<span class="pill ${s}">${s}</span>`; }
 function fmt(d){ return d? new Date(d).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—'; }
 function renderRows(){
   const f = ($("#filter").value||"").toLowerCase();
-  const list = CANDIDATES.filter(c=>!f || [c.firstName,c.lastName,c.internId,c.email,c.status].join(" ").toLowerCase().includes(f));
+  const ord={pending:0,contacted:1,completed:2};
+  const list = CANDIDATES
+    .filter(c=> STATUSFILTER==='all' ? true : STATUSFILTER==='errors' ? !!c.lastError : c.status===STATUSFILTER)
+    .filter(c=>!f || [c.firstName,c.lastName,c.internId,c.email,c.status].join(" ").toLowerCase().includes(f))
+    .sort((a,b)=> (ord[a.status]??3)-(ord[b.status]??3) || (a.lastName||"").localeCompare(b.lastName||""));
   if(!list.length){ $("#rows").innerHTML=`<tr><td colspan="8" class="muted" style="padding:18px">No matching candidates.</td></tr>`; return; }
   $("#rows").innerHTML = list.map(c=>`<tr>
     <td><input type="checkbox" class="rowchk" value="${c.internId}" ${c.status==='completed'?'disabled':''}></td>
@@ -343,6 +352,42 @@ function refreshUI(){ renderStats(localSummary()); renderRows(); }
 
 $("#filter").oninput = renderRows;
 $("#refresh").onclick = ()=>load().then(()=>toast("Refreshed"));
+
+// ---- download all proofs as a zip (client-side, avoids function size limits) ----
+$("#dlProofs").onclick = async ()=>{
+  const withProof = CANDIDATES.filter(c=>c.proofKey);
+  if(!withProof.length){ toast("No proofs uploaded yet",true); return; }
+  const btn=$("#dlProofs"); btn.disabled=true;
+  const safe=s=>String(s||"").replace(/[^a-z0-9]+/gi,"_").replace(/^_+|_+$/g,"")||"x";
+  const zip=new JSZip();
+  let got=0, miss=0;
+  try{
+    for(let i=0;i<withProof.length;i++){
+      const c=withProof[i];
+      btn.textContent=`Zipping… ${i+1}/${withProof.length}`;
+      try{
+        const r=await fetch(`${API}/proof-view?id=${encodeURIComponent(c.internId)}`,{headers:hdrs()});
+        if(!r.ok){ miss++; continue; }
+        const blob=await r.blob();
+        const ct=(c.proofContentType||"");
+        const ext=ct.includes("pdf")?"pdf":ct.includes("png")?"png":"jpg";
+        zip.file(`${safe(c.lastName)}_${safe(c.firstName)}_${safe(c.internId)}.${ext}`, blob);
+        got++;
+      }catch(e){ miss++; }
+    }
+    if(!got){ toast("Could not retrieve any proofs",true); return; }
+    btn.textContent="Building zip…";
+    const out=await zip.generateAsync({type:"blob"});
+    const url=URL.createObjectURL(out);
+    const a=document.createElement("a");
+    a.href=url; a.download=`TEACH_MOECS_Proofs_${new Date().toISOString().slice(0,10)}.zip`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast(`Downloaded ${got} proof(s)${miss?` · ${miss} unavailable`:''}`);
+  }finally{
+    btn.disabled=false; btn.textContent="Download proofs";
+  }
+};
 $("#selAll").onchange = e=>$$(".rowchk").forEach(c=>{ if(!c.disabled)c.checked=e.target.checked; });
 
 function selectedIds(){ return $$(".rowchk:checked").map(c=>c.value); }
@@ -623,6 +668,7 @@ $("#signin").addEventListener("click",()=>setTimeout(loadTemplate,400));
 </script>
 </body>
 </html>
+
 
 
 

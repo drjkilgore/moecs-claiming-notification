@@ -73,6 +73,10 @@
   .modal img{max-width:100%;border:1px solid var(--line);border-radius:8px}
   .muted{color:var(--muted);font-size:12px}
   .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+  .modeToggle{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+  .modeBtn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .stageEmpty{color:var(--muted);font-size:13px;padding:14px}
+  .xbtn{background:none;border:none;color:var(--bad);font-weight:800;font-size:15px;cursor:pointer;line-height:1}
 </style>
 </head>
 <body>
@@ -98,7 +102,7 @@
 <div id="app" class="wrap" style="display:none">
   <div class="tabs">
     <button class="tab active" data-tab="status">Recipients &amp; Status</button>
-    <button class="tab" data-tab="upload">Upload Roster</button>
+    <button class="tab" data-tab="upload">Add Candidates</button>
     <button class="tab" data-tab="template">Email Content</button>
     <button class="tab" data-tab="settings">Settings</button>
   </div>
@@ -127,20 +131,60 @@
     </div>
   </section>
 
-  <!-- UPLOAD -->
+  <!-- ADD CANDIDATES -->
   <section data-panel="upload" style="display:none">
     <div class="card">
-      <h2>Upload roster</h2>
-      <p class="hint">Drop in the MOECS claims roster (.xlsx or .csv). Columns are auto-detected; confirm the mapping, then import. Re-importing updates contact info and never resets anyone's progress.</p>
-      <input type="file" id="file" accept=".xlsx,.xls,.csv">
-      <div id="mapArea" style="display:none">
-        <h3 style="margin-top:18px">Column mapping</h3>
-        <div class="row" id="mapRow"></div>
-        <p class="hint" id="previewInfo"></p>
-        <div class="tablewrap" style="max-height:300px"><table id="previewTbl"></table></div>
-        <div style="margin-top:14px">
-          <button class="btn primary" id="importBtn">Import to system</button>
+      <h2>Add candidates</h2>
+      <p class="hint">Enter people one at a time, or upload a roster file — both build the same list below. Importing an existing Student ID updates their contact info and never resets anyone's progress.</p>
+      <div class="modeToggle">
+        <button class="btn ghost sm modeBtn active" data-mode="manual">Enter manually</button>
+        <button class="btn ghost sm modeBtn" data-mode="file">Upload roster file</button>
+      </div>
+
+      <!-- MANUAL ENTRY -->
+      <div id="manualMode" style="margin-top:16px">
+        <div class="row">
+          <div><label class="fld">Student / Intern ID *</label><input type="text" id="m_internId" placeholder="e.g. 1234567"></div>
+          <div><label class="fld">State license ID</label><input type="text" id="m_stateLicenseId"></div>
         </div>
+        <div class="row">
+          <div><label class="fld">First name *</label><input type="text" id="m_firstName"></div>
+          <div><label class="fld">Last name *</label><input type="text" id="m_lastName"></div>
+        </div>
+        <div class="row">
+          <div><label class="fld">Email *</label><input type="text" id="m_email" placeholder="name@example.com"></div>
+          <div><label class="fld">Phone</label><input type="text" id="m_phone" placeholder="+13135551234"></div>
+        </div>
+        <p class="err" id="m_err"></p>
+        <div style="margin-top:6px"><button class="btn ghost" id="m_add">Add to list ↓</button></div>
+      </div>
+
+      <!-- FILE UPLOAD -->
+      <div id="fileMode" style="display:none;margin-top:16px">
+        <input type="file" id="file" accept=".xlsx,.xls,.csv">
+        <div id="mapArea" style="display:none">
+          <h3 style="margin-top:18px">Column mapping</h3>
+          <div class="row" id="mapRow"></div>
+          <p class="hint" id="previewInfo"></p>
+          <div class="tablewrap" style="max-height:300px"><table id="previewTbl"></table></div>
+          <div style="margin-top:14px"><button class="btn ghost" id="addParsedBtn">Add these to list ↓</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHARED STAGING LIST -->
+    <div class="card" id="stageCard" style="display:none">
+      <h2>Ready to import <span id="stageCount" class="muted"></span></h2>
+      <p class="hint">Review the list, then import everyone at once. Remove any row with ✕.</p>
+      <div class="tablewrap" style="max-height:360px">
+        <table>
+          <thead><tr><th>Name</th><th>Student ID</th><th>Email</th><th>Phone</th><th>License</th><th style="width:30px"></th></tr></thead>
+          <tbody id="stageRows"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn primary" id="importBtn">Import to system</button>
+        <button class="btn ghost" id="stageClear">Clear list</button>
       </div>
     </div>
   </section>
@@ -185,7 +229,7 @@
 <script>
 const API = "/api";
 let KEY = sessionStorage.getItem("teach_admin_key") || "";
-let CANDIDATES = [], PARSED = null;
+let CANDIDATES = [], PARSED = null, STAGE = [];
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -319,8 +363,55 @@ $("#purge").onclick = async ()=>{
   toast(d.ok?`Removed ${d.purged}`:"Failed",!d.ok); load();
 };
 
-// ---- upload + parse ----
+// ---- add candidates: mode toggle ----
+$$(".modeBtn").forEach(b=>b.onclick=()=>{
+  $$(".modeBtn").forEach(x=>x.classList.remove("active")); b.classList.add("active");
+  const file = b.dataset.mode==="file";
+  $("#fileMode").style.display = file?"block":"none";
+  $("#manualMode").style.display = file?"none":"block";
+});
+
 const FIELDS=[["internId","Student / Intern ID",true],["firstName","First name",true],["lastName","Last name",true],["email","Email",true],["phone","Phone",false],["stateLicenseId","State license ID",false]];
+
+// ---- shared staging list (manual + file both feed this) ----
+function stageAdd(row){
+  const internId=String(row.internId??"").trim(); if(!internId) return;
+  const clean={internId,
+    firstName:String(row.firstName??"").trim(), lastName:String(row.lastName??"").trim(),
+    email:String(row.email??"").trim(), phone:String(row.phone??"").trim(),
+    stateLicenseId:String(row.stateLicenseId??"").trim()};
+  const i=STAGE.findIndex(x=>x.internId===internId);
+  if(i>=0) STAGE[i]=clean; else STAGE.push(clean);
+}
+function renderStage(){
+  $("#stageCard").style.display = STAGE.length?"block":"none";
+  $("#stageCount").textContent = STAGE.length?`· ${STAGE.length} candidate${STAGE.length>1?'s':''}`:"";
+  $("#stageRows").innerHTML = STAGE.map((c,i)=>`<tr>
+    <td><strong>${esc(c.lastName)}, ${esc(c.firstName)}</strong></td>
+    <td class="mono">${esc(c.internId)}</td><td>${esc(c.email||'—')}</td>
+    <td>${esc(c.phone||'—')}</td><td>${esc(c.stateLicenseId||'—')}</td>
+    <td><button class="xbtn" data-i="${i}" title="Remove">✕</button></td></tr>`).join("");
+}
+$("#stageRows").onclick = e=>{ const b=e.target.closest("[data-i]"); if(!b)return; STAGE.splice(+b.dataset.i,1); renderStage(); };
+$("#stageClear").onclick = ()=>{ if(STAGE.length && !confirm("Clear the list without importing?"))return; STAGE=[]; renderStage(); };
+
+// ---- manual entry ----
+$("#m_add").onclick = ()=>{
+  const v=k=>$("#m_"+k).value.trim();
+  const row={internId:v("internId"),firstName:v("firstName"),lastName:v("lastName"),email:v("email"),phone:v("phone"),stateLicenseId:v("stateLicenseId")};
+  const miss=[]; if(!row.internId)miss.push("Student ID"); if(!row.firstName)miss.push("First name"); if(!row.lastName)miss.push("Last name"); if(!row.email)miss.push("Email");
+  if(miss.length){ $("#m_err").textContent="Required: "+miss.join(", "); return; }
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(row.email)){ $("#m_err").textContent="That email doesn't look valid."; return; }
+  $("#m_err").textContent="";
+  const dup=STAGE.some(x=>x.internId===row.internId);
+  stageAdd(row); renderStage();
+  ["internId","firstName","lastName","email","phone","stateLicenseId"].forEach(k=>$("#m_"+k).value="");
+  $("#m_internId").focus();
+  toast(dup?"Updated in list":"Added to list");
+};
+$$("#manualMode input").forEach(inp=>inp.addEventListener("keydown",e=>{ if(e.key==="Enter")$("#m_add").click(); }));
+
+// ---- file parse ----
 function guess(headers, field){
   const h=headers.map(x=>String(x).toLowerCase().replace(/[^a-z]/g,""));
   const want={internId:["internid","studentid","student","intern","id"],firstName:["firstname","first","fname"],lastName:["lastname","last","lname"],email:["email","emailaddress","mail"],phone:["phone","phonenumber","cell","mobile"],stateLicenseId:["statelicenseid","license","licenseid","pic"]}[field];
@@ -357,16 +448,24 @@ function preview(){
   $("#previewTbl").innerHTML=`<thead><tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead>`+
     `<tbody>${rows.slice(0,5).map(r=>`<tr>${FIELDS.map(([k])=>`<td>${esc(m[k]?r[m[k]]:'')}</td>`).join("")}</tr>`).join("")}</tbody>`;
 }
-$("#importBtn").onclick = async ()=>{
+$("#addParsedBtn").onclick = ()=>{
   const m=mapping();
   for(const [k,l,req] of FIELDS){ if(req && !m[k]){ toast(`Map a column for: ${l}`,true); return; } }
   const out = PARSED.rows.map(r=>{ const o={}; FIELDS.forEach(([k])=>o[k]= m[k]? String(r[m[k]]??"").trim():""); return o; })
     .filter(o=>o.internId);
   if(!out.length){ toast("No rows with a Student ID",true); return; }
+  out.forEach(stageAdd); renderStage();
+  $("#file").value=""; $("#mapArea").style.display="none"; PARSED=null;
+  toast(`Added ${out.length} from file`);
+};
+
+// ---- import the staged list (manual + file) ----
+$("#importBtn").onclick = async ()=>{
+  if(!STAGE.length){ toast("Add at least one candidate first",true); return; }
   $("#importBtn").disabled=true; $("#importBtn").textContent="Importing…";
-  const r=await api("/import-roster",{json:{rows:out}}); const d=await r.json();
+  const r=await api("/import-roster",{json:{rows:STAGE}}); const d=await r.json();
   $("#importBtn").disabled=false; $("#importBtn").textContent="Import to system";
-  if(d.ok){ toast(`Imported — ${d.added} new, ${d.updated} updated, ${d.skipped} skipped`); load(); $$(".tab")[0].click(); }
+  if(d.ok){ toast(`Imported — ${d.added} new, ${d.updated} updated, ${d.skipped} skipped`); STAGE=[]; renderStage(); load(); $$(".tab")[0].click(); }
   else toast(d.error||"Import failed",true);
 };
 

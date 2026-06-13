@@ -15,7 +15,7 @@ export const CFG = {
   SENDGRID_API_KEY: process.env.SENDGRID_API_KEY || "",
   FROM_EMAIL: process.env.FROM_EMAIL || "micertifications@trainingeducators.com",
   FROM_NAME: process.env.FROM_NAME || "#TEACH Certifications Michigan",
-  REPLY_TO: process.env.REPLY_TO || "micertifications@trainingeducators.com",
+  REPLY_TO: process.env.REPLY_TO || "teachmoecs@gmail.com", // replies land here; From stays on the authenticated domain
   GUIDE_URL: process.env.GUIDE_URL || "",              // public link to the PDF (used in email body)
   SITE_URL: process.env.URL || process.env.SITE_URL || "", // Netlify auto-injects URL
   FOLLOWUP_HOURS: Number(process.env.FOLLOWUP_HOURS || 48),
@@ -72,11 +72,11 @@ export async function saveCandidate(c) {
 export async function listCandidates() {
   const store = candStore();
   const { blobs } = await store.list();
-  const out = [];
-  for (const b of blobs) {
-    const c = await store.get(b.key, { type: "json" });
-    if (c) out.push(c);
-  }
+  // Read all records concurrently — sequential reads time out the function
+  // once there are a few hundred candidates (which breaks login + refresh).
+  const out = (await Promise.all(
+    blobs.map((b) => store.get(b.key, { type: "json" }).catch(() => null))
+  )).filter(Boolean);
   out.sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
   return out;
 }
@@ -134,21 +134,9 @@ export function proofLinkFor(c) {
   return `${base}/proof.html?t=${c.token}`;
 }
 
-function bodyToHtml(text) {
-  // turn URLs into links + preserve line breaks, branded wrapper
-  const linked = esc(text).replace(/(https?:\/\/[^\s<]+)/g,
-    '<a href="$1" style="color:#12A7E6;font-weight:600;">$1</a>');
-  const html = linked.replace(/\n/g, "<br>");
-  return `<div style="font-family:Inter,Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#1a2030;">
-    <div style="background:#002E5D;padding:18px 24px;border-radius:8px 8px 0 0;">
-      <span style="color:#fff;font-weight:800;font-size:20px;letter-spacing:.5px;">#TEACH</span>
-      <span style="color:#9fb4cc;font-size:12px;float:right;margin-top:6px;">MICHIGAN EDUCATOR CERTIFICATION</span>
-    </div>
-    <div style="height:4px;background:#8B0000;"></div>
-    <div style="padding:24px;background:#F5F5F5;border-radius:0 0 8px 8px;">${html}</div>
-    <p style="font-size:11px;color:#888;margin-top:14px;">#TEACH — Training Educators and Creating Hope · This is an official certification notice.</p>
-  </div>`;
-}
+// NOTE: This app sends plain-text email only (no HTML part). A message with no
+// HTML body reads as a personal note, which keeps it in Gmail's Primary inbox
+// instead of the Promotions tab. There is intentionally no HTML wrapper here.
 
 // ---- PDF attachment (bundled with the function) ---------------------------
 let _pdfCache = null;
@@ -180,7 +168,6 @@ export async function sendEmail(c, { followup = false } = {}) {
   const proofLink = proofLinkFor(c);
   const subject = followup ? tpl.subjectFollowup : tpl.subject;
   const text = fill(tpl.body, c, proofLink);
-  const html = bodyToHtml(text);
 
   const attachments = [];
   const pdf = await guidePdfBase64();
@@ -194,14 +181,25 @@ export async function sendEmail(c, { followup = false } = {}) {
   }
 
   const payload = {
-    personalizations: [{ to: [{ email: c.email, name: `${c.firstName} ${c.lastName}`.trim() }] }],
+    personalizations: [{
+      to: [{ email: c.email, name: `${c.firstName} ${c.lastName}`.trim() }],
+    }],
     from: { email: CFG.FROM_EMAIL, name: CFG.FROM_NAME },
     reply_to: { email: CFG.REPLY_TO },
     subject,
+    // Plain-text only: a message with no HTML part reads as a personal note,
+    // which Gmail keeps in Primary instead of filing under Promotions.
     content: [
       { type: "text/plain", value: text },
-      { type: "text/html", value: html },
     ],
+    // Disable SendGrid's open-tracking pixel, link rewriting, and unsubscribe
+    // footer — those are the classic bulk/marketing fingerprints that trigger
+    // the Promotions tab. Turning them off makes the send look transactional.
+    tracking_settings: {
+      click_tracking: { enable: false, enable_text: false },
+      open_tracking: { enable: false },
+      subscription_tracking: { enable: false },
+    },
     ...(attachments.length ? { attachments } : {}),
   };
 
@@ -237,3 +235,4 @@ export async function contactCandidate(c, { followup = false } = {}) {
   await saveCandidate(c);
   return result;
 }
+

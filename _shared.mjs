@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import crypto from "node:crypto";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 // ---- Config (env) ---------------------------------------------------------
 export const CFG = {
@@ -155,7 +155,7 @@ let _pdfCache = null;
 async function guidePdfBase64() {
   if (_pdfCache !== null) return _pdfCache || null;
   const candidates = [
-    path.join(__dirname, "MDE_MOECS_Guide.pdf"),
+    path.join(HERE, "MDE_MOECS_Guide.pdf"),
     path.join(process.cwd(), "netlify/functions/MDE_MOECS_Guide.pdf"),
     path.join(process.cwd(), "MDE_MOECS_Guide.pdf"),
     "netlify/functions/MDE_MOECS_Guide.pdf",
@@ -237,3 +237,4 @@ export async function contactCandidate(c, { followup = false } = {}) {
   await saveCandidate(c);
   return result;
 }
+

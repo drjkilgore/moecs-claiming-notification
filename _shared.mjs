@@ -16,11 +16,10 @@ export const CFG = {
   FROM_EMAIL: process.env.FROM_EMAIL || "micertifications@trainingeducators.com",
   FROM_NAME: process.env.FROM_NAME || "#TEACH Certifications Michigan",
   REPLY_TO: process.env.REPLY_TO || "teachmoecs@gmail.com", // replies land here; From stays on the authenticated domain
-  NOTIFY_EMAIL: process.env.NOTIFY_EMAIL || "teachmoecs@gmail.com", // gets a note each time a candidate submits proof
   GUIDE_URL: process.env.GUIDE_URL || "",              // public link to the PDF (used in email body)
   SITE_URL: process.env.URL || process.env.SITE_URL || "", // Netlify auto-injects URL
   FOLLOWUP_HOURS: Number(process.env.FOLLOWUP_HOURS || 48),
-  MAX_FOLLOWUPS: Number(process.env.MAX_FOLLOWUPS || 6),
+  MAX_FOLLOWUPS: Number(process.env.MAX_FOLLOWUPS || 12),
 };
 
 // ---- Stores ---------------------------------------------------------------
@@ -73,11 +72,11 @@ export async function saveCandidate(c) {
 export async function listCandidates() {
   const store = candStore();
   const { blobs } = await store.list();
-  // Read all records concurrently — sequential reads time out the function
-  // once there are a few hundred candidates (which breaks login + refresh).
-  const out = (await Promise.all(
-    blobs.map((b) => store.get(b.key, { type: "json" }).catch(() => null))
-  )).filter(Boolean);
+  const out = [];
+  for (const b of blobs) {
+    const c = await store.get(b.key, { type: "json" });
+    if (c) out.push(c);
+  }
   out.sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
   return out;
 }
@@ -135,9 +134,16 @@ export function proofLinkFor(c) {
   return `${base}/proof.html?t=${c.token}`;
 }
 
-// NOTE: This app sends plain-text email only (no HTML part). A message with no
-// HTML body reads as a personal note, which keeps it in Gmail's Primary inbox
-// instead of the Promotions tab. There is intentionally no HTML wrapper here.
+function bodyToHtml(text) {
+  // Lightweight, transactional-looking HTML — no banners, background fills, logos,
+  // or marketing footer. A plainer message lands in Gmail's Primary inbox far more
+  // reliably than a fully-branded layout (which Gmail tends to file under Promotions).
+  // Links are left with the browser-default style so they read as normal hyperlinks,
+  // not call-to-action buttons. Sender identity comes from the signature in the body.
+  const linked = esc(text).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
+  const html = linked.replace(/\n/g, "<br>");
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;">${html}</div>`;
+}
 
 // ---- PDF attachment (bundled with the function) ---------------------------
 let _pdfCache = null;
@@ -169,6 +175,7 @@ export async function sendEmail(c, { followup = false } = {}) {
   const proofLink = proofLinkFor(c);
   const subject = followup ? tpl.subjectFollowup : tpl.subject;
   const text = fill(tpl.body, c, proofLink);
+  const html = bodyToHtml(text);
 
   const attachments = [];
   const pdf = await guidePdfBase64();
@@ -188,19 +195,10 @@ export async function sendEmail(c, { followup = false } = {}) {
     from: { email: CFG.FROM_EMAIL, name: CFG.FROM_NAME },
     reply_to: { email: CFG.REPLY_TO },
     subject,
-    // Plain-text only: a message with no HTML part reads as a personal note,
-    // which Gmail keeps in Primary instead of filing under Promotions.
     content: [
       { type: "text/plain", value: text },
+      { type: "text/html", value: html },
     ],
-    // Disable SendGrid's open-tracking pixel, link rewriting, and unsubscribe
-    // footer — those are the classic bulk/marketing fingerprints that trigger
-    // the Promotions tab. Turning them off makes the send look transactional.
-    tracking_settings: {
-      click_tracking: { enable: false, enable_text: false },
-      open_tracking: { enable: false },
-      subscription_tracking: { enable: false },
-    },
     ...(attachments.length ? { attachments } : {}),
   };
 
@@ -217,40 +215,6 @@ export async function sendEmail(c, { followup = false } = {}) {
     throw new Error(`SendGrid ${r.status}: ${body.slice(0, 300)}`);
   }
   return true;
-}
-
-// ---- Completion notification (sent to staff when a candidate submits proof) ----
-export async function notifyCompletion(c) {
-  if (!CFG.SENDGRID_API_KEY || !CFG.NOTIFY_EMAIL) return;
-  const name = `${c.firstName || ""} ${c.lastName || ""}`.trim() || "(no name)";
-  let when = c.completedAt || new Date().toISOString();
-  try { when = new Date(when).toLocaleString("en-US", { timeZone: "America/Detroit" }); } catch {}
-  const text =
-`A candidate just submitted their MOECS provider-selection proof.
-
-Name: ${name}
-Student ID: ${c.internId}
-Email: ${c.email || "(none)"}
-Submitted: ${when}
-
-They are now marked Completed in the console and their reminders have stopped. To view the proof, open the Recipients & Status tab and click the Proof button on their row.`;
-  const payload = {
-    personalizations: [{ to: [{ email: CFG.NOTIFY_EMAIL }] }],
-    from: { email: CFG.FROM_EMAIL, name: CFG.FROM_NAME },
-    subject: `Proof submitted — ${name} (${c.internId})`,
-    content: [{ type: "text/plain", value: text }],
-    tracking_settings: {
-      click_tracking: { enable: false, enable_text: false },
-      open_tracking: { enable: false },
-      subscription_tracking: { enable: false },
-    },
-  };
-  const r = await fetch("https://api.sendgrid.com/v3/mail/send", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${CFG.SENDGRID_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!r.ok) throw new Error(`SendGrid ${r.status}`);
 }
 
 // ---- Send orchestration (used by initial + follow-up) ---------------------
@@ -270,4 +234,3 @@ export async function contactCandidate(c, { followup = false } = {}) {
   await saveCandidate(c);
   return result;
 }
-
